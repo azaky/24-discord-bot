@@ -241,6 +241,14 @@ solver.init();
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  client.user.setActivity('24 | !play | !help', { type: 'PLAYING' });
+});
+
+client.on('guildCreate', guild => {
+  console.log(`Added to server=[${guild.name}] server_id=${guild.id}`);
+  if (guild.systemChannel && guild.systemChannel.permissionsFor(guild.me).has('SEND_MESSAGES')) {
+    guild.systemChannel.send('Thanks for adding me! Type `!play` to start playing 24, or `!help` for more information.');
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
