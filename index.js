@@ -152,7 +152,7 @@ function solve(args, message) {
     }
   }
 
-  input = input.match(/[0-9]+/g).map(a => parseInt(a));
+  input = (input.match(/[0-9]+/g) || []).map(a => parseInt(a));
   if (input.length < 1 || input.length > 4) {
     message.channel.send('Invalid input! Input numbers must consist of 1-4 whole numbers.');
     return;
