@@ -85,7 +85,12 @@ function play(args, message) {
   if (!problem) {
     problem = solver.getProblem(target);
   }
-  games[id] = {problem, target, solution: solver.solvePrecomputed(problem, target)};
+  games[id] = {
+    problem,
+    target,
+    solution: solver.solvePrecomputed(problem, target),
+    timestamp: new Date().getTime(),
+  };
   console.log(games[id]);
   message.channel.send(`Here is a new problem for you!\n\nGet **${target}** from numbers **${problem}**. You may use +, -, *, /, ^ (power), and parentheses. Type \`!answer <your answer>\` to answer!`);
 
@@ -110,8 +115,20 @@ function answer(args, message) {
     return;
   }
 
+  const time = new Date().getTime() - games[id].timestamp;
+
   message.react('💯');
-  message.channel.send(`:100: points for <@${message.author.id}>! Well done!`);
+
+  // Appreciate more to quick solvers!
+  if (time < 4000) {
+    message.channel.send(`:100: points for <@${message.author.id}>! **${Math.floor(time/100)/10} seconds**. They said it could not be done. *They were wrong*.`);
+  } else if (time < 7000) {
+    message.channel.send(`:100: points for <@${message.author.id}>! You did it in an *impossible* time of **${Math.floor(time/100)/10} seconds**, unbelievable!!`);
+  } else if (time < 12000) {
+    message.channel.send(`:100: points for <@${message.author.id}>! Wow, it took you only **${Math.floor(time/100)/10} seconds**, superb!`);
+  } else {
+    message.channel.send(`:100: points for <@${message.author.id}>! Well done!`);
+  }
   deleteGame(id);
 }
 
@@ -167,13 +184,12 @@ function solve(args, message) {
 }
 
 client.on('message', (message) => {
-  console.log(`Message from channel=#[${message.channel.name}] in server [${message.guild.name}] (id=${message.guild.id})`);
-
   const msg = parse(message.content);
   if (!msg || !msg.type) {
     return;
   }
 
+  console.log(`New message: user=@[${message.author.username}] user_id=${message.author.id} channel=#[${message.channel.name}] server=[${message.guild.name}] server_id=${message.guild.id}`);
   console.log(msg);
 
   switch (msg.type) {
