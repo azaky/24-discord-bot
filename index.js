@@ -42,7 +42,11 @@ For `!answer`, `!hint`, and `!surrender`, a game must be currently ongoing.\n\
 **`!help`**: Show this help text.';
 
 function getChannelId(message) {
-  return `${message.guild.id}#${message.channel.name}`;
+  if (message.guild) {
+    return `${message.guild.id}#${message.channel.name}`;
+  }
+  // direct message
+  return `${message.channel.id}#`;
 }
 
 function deleteGame(id) {
@@ -53,6 +57,9 @@ function deleteGame(id) {
 
 function help(args, message) {
   message.channel.send(HELP_TEXT);
+  if (message.channel.type === 'dm') {
+    message.channel.send('Also, you can ignore prefix ! on direct messages with me! Just type `play` to start a game!');
+  }
   const id = getChannelId(message);
   if (games.hasOwnProperty(id)) {
     message.channel.send(`Oh, and it seems that you have ongoing game:\n\nGet **${games[id].target}** from numbers **${games[id].problem}**`);
@@ -184,12 +191,23 @@ function solve(args, message) {
 }
 
 client.on('message', (message) => {
-  const msg = parse(message.content);
+  // auto-add prefix ! in direct messages
+  let content = message.content;
+  if (message.channel.type === 'dm' && !content.startsWith('!')) {
+    content = `!${content}`;
+  }
+  const msg = parse(content);
   if (!msg || !msg.type) {
     return;
   }
 
-  console.log(`New message: user=@[${message.author.username}] user_id=${message.author.id} channel=#[${message.channel.name}] server=[${message.guild.name}] server_id=${message.guild.id}`);
+  let channel;
+  if (message.guild) {
+    channel = `channel=#[${message.channel.name}] server=[${message.guild.name}] server_id=${message.guild.id}`;
+  } else {
+    channel = `channel=${message.channel.id} (dm)`;
+  }
+  console.log(`New message: user=@[${message.author.username}] user_id=${message.author.id} ${channel}`);
   console.log(msg);
 
   switch (msg.type) {
