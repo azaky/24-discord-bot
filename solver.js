@@ -313,7 +313,7 @@ function check(answer, input, target) {
   if (Math.abs(result-target) > 1e-9) {
     return {
       valid: false,
-      reason: `${answer} evaluates to ${result}, target = ${target}`,
+      reason: `${answer} evaluates to ${result}, not ${target}`,
     };
   }
 

@@ -5,19 +5,20 @@ require('dotenv').config()
 
 const client = new Discord.Client();
 
+// TODO: customizable prefix per guild
+const PREFIX = '.';
+
+// Patterns match after prefix is removed
 const PATTERNS = {
-  help: /^!help\s*$/i,
-  play: /^!play\s*(\w+)?\s*$/i,
-  answer: /^!answer\s*(.*)\s*$/i,
-  hint: /^!hint\s*$/i,
-  surrender: /^!surrender\s*$/i,
-  solve: /^!solve\s*(.*)\s*$/i,
+  help: /^help\s*$/i,
+  play: /^play\s*(\w+)?\s*$/i,
+  answer: /^answer\s*(.*)\s*$/i,
+  hint: /^hint\s*$/i,
+  surrender: /^surrender\s*$/i,
+  solve: /^solve\s*(.*)\s*$/i,
 };
 
 function parse(message) {
-  if (!message.startsWith('!')) {
-    return {type: null};
-  }
   for (const type of Object.keys(PATTERNS)) {
     const matches = message.match(PATTERNS[type]);
     if (matches) {
@@ -28,18 +29,6 @@ function parse(message) {
 }
 
 let games = {}; // [id#channel] -> {target, problem, solution}
-
-const HELP_TEXT = '24 is a classic math game, where you are to **combine 4 numbers using arithmetic operators (+, -, \\*, /, ^) to get 24**. The target number 24 is arbitrary and can be changed.\n\n\
-Here are the commands to play/interact with me:\n\
-**`!play`**: Start a new game with default target 24.\n\
-**`!play 31`**: Start a new game with target 31.\n\
-**`!play random`**: Start a new game with random target.\n\n\
-For `!answer`, `!hint`, and `!surrender`, a game must be currently ongoing.\n\
-**`!answer (1+3)*(2+4)`**: Attempt to answer.\n\
-**`!hint`**: Ask for hint to current game.\n\
-**`!surrender`**: Give up and ask for the solution.\n\n\
-**`!solve 1 2 3 4 = 31`**: Ask the bot to solve for you. If no "= target" is found, then 24 is assumed.\n\n\
-**`!help`**: Show this help text.';
 
 function getChannelId(message) {
   if (message.guild) {
@@ -56,20 +45,92 @@ function deleteGame(id) {
 }
 
 function help(args, message) {
-  message.channel.send(HELP_TEXT);
+  const embed = new Discord.MessageEmbed()
+    .setColor('#008891')
+    .setTitle('How to Play')
+    .setURL('https://github.com/azaky/24-discord-bot')
+    .setThumbnail('https://cdn.discordapp.com/avatars/798567222779314227/a47e8f1e8b4981b20a92d4574ef89ecd.png')
+    // .setFooter('Github: https://github.com/azaky/24-discord-bot', 'https://github.githubassets.com/favicons/favicon-dark.png')
+    .setDescription('**24** is a classic math game, where you are asked to **combine 4 numbers using operators +, -, \\*, /, ^ to get 24**.')
+    .addFields(
+      {
+        name: 'Example',
+        value: [
+          'Using **5, 4, 3, 2**, you can get 24 in some ways:',
+          '> `4*(5+3-2)`',
+          '> `2^4 + 5 + 3`',
+          'But you cannot \'combine\' the numbers, so the following is invalid:',
+          '> `25 - (4 - 3)` is not allowed',
+        ].join('\n'),
+      },
+      {
+        name: `${PREFIX}play`,
+        value: [
+          `Start a new game.`,
+          `> \`${PREFIX}play\``,
+          `> \`${PREFIX}play 31\` using 31 as target`,
+          `> \`${PREFIX}play random\` using random number as target`,
+        ].join('\n'),
+      },
+      {
+        name: `${PREFIX}answer`,
+        value: [
+          `Attempt to answer an ongoing game.`,
+          `> \`${PREFIX}answer (3 + 3) * (6 - 2)\``,
+          `> \`${PREFIX}answer 5^(8 / 4) - 1\``,
+        ].join('\n'),
+      },
+      {
+        name: `${PREFIX}hint`,
+        value: `Ask me for hint to current game.`,
+      },
+      {
+        name: `${PREFIX}surrender`,
+        value: `Give in to current game.`,
+      },
+      {
+        name: `${PREFIX}solve`,
+        value: [
+          `Ask me to solve for you.`,
+          `> \`${PREFIX}solve 5 6 7 8\``,
+          `> \`${PREFIX}solve 5 6 7 8 = 31\``,
+        ].join('\n'),
+      },
+    );
+
   if (message.channel.type === 'dm') {
-    message.channel.send('Also, you can ignore prefix ! on direct messages with me! Just type `play` to start a game!');
+    embed.addField(
+      'Other',
+      [
+        `Also, you can ignore the prefix \`${PREFIX}\` on direct messages.`,
+        `Just type \`play\` to start a game.`,
+      ].join('\n')
+    );
   }
+
   const id = getChannelId(message);
   if (games.hasOwnProperty(id)) {
-    message.channel.send(`Oh, and it seems that you have ongoing game:\n\nGet **${games[id].target}** from numbers **${games[id].problem}**`);
+    embed.addField(
+      'Current Game',
+      [
+        `It seems that you have ongoing game:`,
+        ``,
+        `Get **${games[id].target}** from numbers **${games[id].problem}**`,
+      ].join('\n'),
+    );
   }
+
+  message.channel.send(embed);
 }
 
 function play(args, message) {
   const id = getChannelId(message);
   if (games.hasOwnProperty(id)) {
-    message.channel.send(`A game is currently active! Send \`!surrender\` to give up.\n\nCurrent game: Get **${games[id].target}** from numbers **${games[id].problem}**`);
+    message.channel.send([
+      `A game is currently active! Send \`${PREFIX}surrender\` to give up.`,
+      ``,
+      `Current game: Get **${games[id].target}** from numbers **${games[id].problem}**`,
+    ].join('\n'));
     return;
   }
   let target = 24, problem;
@@ -79,12 +140,12 @@ function play(args, message) {
     } else {
       const matches = args[0].match(/^\s*(\d+)\s*$/);
       if (!matches) {
-        message.channel.send('Invalid syntax! Try `!play`, `!play 31`, or `!play random`. When specifying target, it must be a whole number between 0 and 100.');
+        message.channel.send(`Invalid syntax! Try \`${PREFIX}play\`, \`${PREFIX}play 31\`, or \`${PREFIX}play random\`. When specifying target, it must be a whole number between 0 and 100.`);
         return;
       }
       target = parseInt(matches[1]);
       if (isNaN(target) || target < 0 || target > 100) {
-        message.channel.send('Invalid syntax! Try `!play`, `!play 31`, or `!play random`. When specifying target, it must be a whole number between 0 and 100.');
+        message.channel.send(`Invalid syntax! Try \`${PREFIX}play\`, \`${PREFIX}play 31\`, or \`${PREFIX}play random\`. When specifying target, it must be a whole number between 0 and 100.`);
         return;
       }
     }
@@ -99,12 +160,20 @@ function play(args, message) {
     timestamp: new Date().getTime(),
   };
   console.log(games[id]);
-  message.channel.send(`Here is a new problem for you!\n\nGet **${target}** from numbers **${problem}**. You may use +, -, *, /, ^ (power), and parentheses. Type \`!answer <your answer>\` to answer!`);
+  message.channel.send([
+    `Here is a new problem for you! Answer with \`${PREFIX}answer <your answer>\` e.g. \`${PREFIX}answer 5 + 5 + 2*7\`.`,
+    ``,
+    `Get **${target}** from numbers **${problem}** using operators +, -, \\*, /, ^ (power), and parentheses!`,
+  ].join('\n'));
 
   // Send hint after some amount of time
   games[id].timeout = setTimeout(() => {
     if (games.hasOwnProperty(id)) {
-      message.channel.send(`Still struggling? Here is a little hint for you: **${games[id].solution.replace(/[0-9]+/g, '#')}** = ${games[id].target}. If you are really really stuck, you can give in with \`!surrender\``);
+      message.channel.send([
+        `Still struggling? Here is a little hint for you. If you are really really stuck, you can give in with \`${PREFIX}surrender\``,
+        ``,
+        `**${games[id].solution.replace(/[0-9]+/g, '?')}** = ${games[id].target}`,
+      ].join('\n'));
     }
   }, 60000);
 }
@@ -112,13 +181,13 @@ function play(args, message) {
 function answer(args, message) {
   const id = getChannelId(message);
   if (!games.hasOwnProperty(id)) {
-    message.channel.send('No game is active! Start a new one with `!play`.');
+    message.channel.send(`No game is active! Start a new one with \`${PREFIX}play\`.`);
     return;
   }
 
   const {valid, reason} = solver.check(args[0], games[id].problem, games[id].target);
   if (!valid) {
-    message.channel.send(`Oops, wrong answer. ${reason}`);
+    message.channel.send(`Oops, wrong answer. **${reason.replace(/\*/g, '\\*')}**`);
     return;
   }
 
@@ -142,18 +211,22 @@ function answer(args, message) {
 function surrender(args, message) {
   const id = getChannelId(message);
   if (!games.hasOwnProperty(id)) {
-    message.channel.send('No game is active! Start a new one with `!play`.');
+    message.channel.send(`No game is active! Start a new one with \`${PREFIX}play\`.`);
     return;
   }
 
-  message.channel.send(`That was a hard one, wasn't it? Alright, this is the solution: **${games[id].solution}** = ${games[id].target}`);
+  message.channel.send([
+    `That was a hard one, wasn't it? Alright, this is the solution:`,
+    ``,
+    `**${games[id].solution.replace(/\*/g, '\\*')}** = ${games[id].target}`,
+  ].join('\n'));
   deleteGame(id);
 }
 
 function hint(args, message) {
   const id = getChannelId(message);
   if (!games.hasOwnProperty(id)) {
-    message.channel.send('No game is active! Start a new one with `!play`.');
+    message.channel.send(`No game is active! Start a new one with \`${PREFIX}play\`.`);
     return;
   }
 
@@ -186,28 +259,33 @@ function solve(args, message) {
   if (!solution) {
     message.channel.send(`No solution found for ${args[0]} 🙁`);
   } else {
-    message.channel.send(`That's an easy one! **${solution} = ${target}**`)
+    message.channel.send(`That's an easy one! **${solution.replace('*', '\\*')} = ${target}**`)
   }
 }
 
 client.on('message', (message) => {
-  // auto-add prefix ! in direct messages
   let content = message.content;
-  if (message.channel.type === 'dm' && !content.startsWith('!')) {
-    content = `!${content}`;
+  // TODO: handle mentions
+  if (content.startsWith(PREFIX)) {
+    content = content.slice(PREFIX.length);
+  } else {
+    // allow no prefix in DMs
+    if (message.channel.type !== 'dm') return;
   }
+
   const msg = parse(content);
   if (!msg || !msg.type) {
     return;
   }
 
-  let channel;
+  let channelInfo;
   if (message.guild) {
-    channel = `channel=#[${message.channel.name}] server=[${message.guild.name}] server_id=${message.guild.id}`;
+    channelInfo = `channel=#[${message.channel.name}] server=[${message.guild.name}] server_id=${message.guild.id}`;
   } else {
-    channel = `channel=${message.channel.id} (dm)`;
+    channelInfo = `channel=${message.channel.id} (dm)`;
   }
-  console.log(`New message: user=@[${message.author.username}] user_id=${message.author.id} ${channel}`);
+  let userInfo = `user=@[${message.author.username}] user_id=${message.author.id}`;
+  console.log(`New message: ${userInfo} ${channelInfo}`);
   console.log(msg);
 
   switch (msg.type) {
@@ -241,7 +319,7 @@ solver.init();
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
-  client.user.setActivity('24 | !play | !help', { type: 'PLAYING' });
+  client.user.setActivity(`24 | ${PREFIX}play | ${PREFIX}help`, { type: 'PLAYING' });
 });
 
 client.on('guildCreate', guild => {
